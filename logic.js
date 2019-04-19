@@ -1,7 +1,9 @@
 // We create the tile layer that will be the background of our map.
 console.log("working");
 
-var apiKey = "YOUR API KEY HERE!";
+var apiKey = "sk.eyJ1IjoiYWx5emF3IiwiYSI6ImNqdGxvNW11djAzbDMzeXBkY254ZWM5amgifQ.IrmjbTfUAIo7wfdeR6bFFQ";
+var previous_week = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson";
+var plates = "https://raw.githubusercontent.com/fraxen/tectonicplates/master/GeoJSON/PB2002_boundaries.json";
 
 var graymap = L.tileLayer("https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}", {
   attribution: "Map data &copy; <a href='https://www.openstreetmap.org/'>OpenStreetMap</a> contributors, <a href='https://creativecommons.org/licenses/by-sa/2.0/'>CC-BY-SA</a>, Imagery © <a href='https://www.mapbox.com/'>Mapbox</a>",
@@ -10,19 +12,41 @@ var graymap = L.tileLayer("https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?
   accessToken: apiKey
 });
 
+var dark = L.tileLayer("https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}", {
+  attribution: "Map data &copy; <a href=\"https://www.openstreetmap.org/\">OpenStreetMap</a> contributors, <a href=\"https://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA</a>, Imagery © <a href=\"https://www.mapbox.com/\">Mapbox</a>",
+  maxZoom: 18,
+  id: "mapbox.dark",
+  accessToken: apiKey
+});
+
+var satellite = L.tileLayer("https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token={accessToken}", {
+  attribution: "Map data &copy; <a href=\"https://www.openstreetmap.org/\">OpenStreetMap</a> contributors, <a href=\"https://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA</a>, Imagery © <a href=\"https://www.mapbox.com/\">Mapbox</a>",
+  maxZoom: 18,
+  id: "mapbox.satellite",
+  accessToken: apiKey
+});
+
+// Only one base layer can be shown at a time
+var baseMaps = {
+  Street: graymap,
+  Dark: dark,
+  Satellite: satellite
+};
+
 // We create the map object with options.
 var map = L.map("mapid", {
   center: [
     40.7, -94.5
   ],
-  zoom: 3
+  zoom: 3,
+  layers: [graymap]
 });
 
-// Then we add our 'graymap' tile layer to the map.
-graymap.addTo(map);
+var controlLayers = L.control.layers(baseMaps, {}, {collapsed: false}).addTo(map);
 
 // Here we make an AJAX call that retrieves our earthquake geoJSON data.
-d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geojson", function(data) {
+
+d3.json(previous_week, function(data) {
 
   // This function returns the style data for each of the earthquakes we plot on
   // the map. We pass the magnitude of the earthquake into two separate functions
@@ -68,7 +92,7 @@ d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geoj
   }
 
   // Here we add a GeoJSON layer to the map once the file is loaded.
-  L.geoJson(data, {
+  var weekQuake = L.geoJson(data, {
     // We turn each feature into a circleMarker on the map.
     pointToLayer: function(feature, latlng) {
       return L.circleMarker(latlng);
@@ -80,6 +104,19 @@ d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geoj
       layer.bindPopup("Magnitude: " + feature.properties.mag + "<br>Location: " + feature.properties.place);
     }
   }).addTo(map);
+  
+  controlLayers.addOverlay(weekQuake, "Earthquakes this Week");
+
+  d3.json(plates, function(data) {
+    var tecPlates = L.geoJson(data, {
+      style: {
+        color: "red",
+        weight: 2
+      }
+    }).addTo(map)
+
+    controlLayers.addOverlay(tecPlates, "Tectonic Plates")
+  });
 
   // Here we create a legend control object.
   var legend = L.control({
@@ -109,6 +146,8 @@ d3.json("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_week.geoj
     return div;
   };
 
-  // Finally, we our legend to the map.
+  // add legend to the map.
   legend.addTo(map);
+
 });
+  
